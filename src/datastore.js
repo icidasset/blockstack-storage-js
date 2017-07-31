@@ -497,7 +497,7 @@ export function datastoreMount(opts) {
           return new Promise((resolve, reject) => { resolve(ds); });
        }
    }
-   
+
    if (!blockchain_id || blockchain_id === session_blockchain_id) {
 
        // assume the one in this session
@@ -522,8 +522,7 @@ export function datastoreMount(opts) {
        app_public_keys = session.app_public_keys;
        datastore_id = datastoreGetId(getPubkeyHex(data_privkey_hex));
        blockchain_id = session_blockchain_id;
-   } 
-   else {
+   } else {
       // TODO: look up the datastore information via Core
       // TODO: blocked by Core's lack of support for token files
       // TODO: set device_id, blockchain_id, app_public_keys
@@ -666,7 +665,6 @@ function getCachedMountContext(blockchain_id) {
  * Cache a mount context for a blockchain ID
  */
 function setCachedMountContext(blockchain_id, datastore_context) {
-
    let userData = getUserData();
    assert(userData);
 
@@ -679,9 +677,9 @@ function setCachedMountContext(blockchain_id, datastore_context) {
 }
 
 function getBlockchainIDFromSessionOrDefault(session) {
-   if (! session.blockchain_id ){
+   if (!session.blockchain_id) {
        return hashRawData(Buffer.from(session.app_user_id).toString('base64'));
-   }else{
+   } else {
        return session.blockchain_id;
    }
 }
@@ -704,8 +702,7 @@ function getSessionToken() {
  * Get the current session's blockchain ID
  * Throw if not defined or not present.
  */
-function getSessionBlockchainID(sessionToken=null) {
-
+export function getSessionBlockchainID(sessionToken=null) {
    if (!sessionToken) {
       sessionToken = getSessionToken();
    }
@@ -1163,8 +1160,11 @@ function getInode(path, opts={}) {
       blockchain_id = getSessionBlockchainID();
    }
 
-   return datastoreMount({'blockchainID': blockchain_id})
-   .then((ds) => {
+   const dataStoreConnection = (
+     opts.ds ? Promise.resolve(opts.ds) : datastoreMount({'blockchainID': blockchain_id})
+   );
+
+   return dataStoreConnection.then(ds => {
 
       assert(ds);
 
@@ -1210,7 +1210,7 @@ function getInode(path, opts={}) {
             if (inode.type === MUTABLE_DATUM_DIR_TYPE && response.hints && response.hints.children_absent) {
                for (let child_name of response.hints.children_absent) {
                   if (Object.keys(inode.idata.children).includes(child_name)) {
-                     // mask this 
+                     // mask this
                      console.log(`child inode ${child_name} is only partially-created; masking...`);
                      delete response.inode_info.inode.idata.children[child_name];
                   }
@@ -1245,7 +1245,7 @@ export function getFile(path, opts={}) {
    if (!blockchain_id) {
       blockchain_id = getSessionBlockchainID();
    }
-   
+
    return datastoreMount({'blockchainID': blockchain_id})
    .then((ds) => {
       assert(ds);
@@ -1359,7 +1359,7 @@ function datastoreOperation(ds, operation, path, inodes, payloads, signatures, t
       'path': request_path,
    };
 
-   options['headers'] = {'Authorization': `bearer ${getSessionToken()}`}
+   options['headers'] = {'Authorization': `bearer ${ds.session_token}`}
 
    const datastore_str = JSON.stringify(ds.datastore);
    const datastore_sig = signRawData( datastore_str, datastore_privkey );
@@ -1451,8 +1451,11 @@ export function putFile(path, file_buffer, opts={}) {
       blockchain_id = getSessionBlockchainID();
    }
 
-   return datastoreMountOrCreate()
-   .then((ds) => {
+   const dataStoreConnection = (
+     opts.ds ? Promise.resolve(opts.ds) : datastoreMountOrCreate()
+   );
+
+   return dataStoreConnection.then(ds => {
 
       assert(ds);
 
